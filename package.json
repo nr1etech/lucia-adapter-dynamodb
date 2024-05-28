@@ -11,6 +11,7 @@
   ],
   "type": "module",
   "scripts": {
+    "watch": "tsc -w",
     "test": "tsx tests/index.ts",
     "build": "shx rm -rf ./dist/* && tsc",
     "lint": "eslint ."
