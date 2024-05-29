@@ -9,9 +9,6 @@
     publish:
       uses: nr1etech/github-workflows/.github/workflows/javascript-library.yml@develop
       with:
-        github-email: "365211+erikrj@users.noreply.github.com"
-        github-name: "Erik Jensen"
-        site-branch: 'main'
         publish-dir: "dist"
         node-versions: '[20,22]'
         publish-node-version: '22'
