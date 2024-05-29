@@ -30,17 +30,17 @@ await new Promise<void>((resolve) => {
 })
   .then(() => prepareTable(client))
   .then((adapter) => testAdapter(adapter))
-  .then(() => { console.log('  \x1B[32m✓ Test for configuration with 2 GSIs passed\x1B[0m\n'); })
+  .then(() => { console.log('  \x1B[32m✓ Test for configuration passed\x1B[0m\n'); })
   .catch((e) => {
-    console.error('  \x1B[31m✗ Test for configuration with 2 GSIs failed\x1B[0m\n');
+    console.error('  \x1B[31m✗ Test for configuration failed\x1B[0m\n');
     throw e;
   });
 
 async function prepareTable(client: DynamoDBClient) {
-  console.log('\n\x1B[38;5;63;1m[prepare]  \x1B[0mPreparing local DynamoDB table for configuration with 2 GSIs\x1B[0m\n');
+  console.log('\n\x1B[38;5;63;1m[prepare]  \x1B[0mPreparing local DynamoDB table for configuration\x1B[0m\n');
   // create table if not exists
   await client.send(new DescribeTableCommand({ TableName: TableName }))
-    .then(() => console.log('Detected existing auth table with 2 GSIs!'))
+    .then(() => console.log('Detected existing auth table'))
     .catch(async (e) => {
       if (e instanceof ResourceNotFoundException) {
         console.log('Wait for table creation to complete...');
@@ -48,24 +48,24 @@ async function prepareTable(client: DynamoDBClient) {
           .send(new CreateTableCommand({
             TableName: TableName,
             AttributeDefinitions: [
-              { AttributeName: 'PK', AttributeType: 'S' },
-              { AttributeName: 'SK', AttributeType: 'S' },
-              { AttributeName: 'GSI1PK', AttributeType: 'S' },
-              { AttributeName: 'GSI1SK', AttributeType: 'S' },
-              { AttributeName: 'GSI2PK', AttributeType: 'S' },
-              { AttributeName: 'GSI2SK', AttributeType: 'S' },
+              { AttributeName: 'Pk', AttributeType: 'S' },
+              { AttributeName: 'Sk', AttributeType: 'S' },
+              { AttributeName: 'Gs1Pk', AttributeType: 'S' },
+              { AttributeName: 'Gs1Sk', AttributeType: 'S' },
+              { AttributeName: 'Gs2Pk', AttributeType: 'S' },
+              { AttributeName: 'Gs2Sk', AttributeType: 'S' },
             ],
             KeySchema: [
-              { AttributeName: 'PK', KeyType: 'HASH' }, // primary key
-              { AttributeName: 'SK', KeyType: 'RANGE' }, // sort key
+              { AttributeName: 'Pk', KeyType: 'HASH' }, // primary key
+              { AttributeName: 'Sk', KeyType: 'RANGE' }, // sort key
             ],
             GlobalSecondaryIndexes: [
               {
-                IndexName: 'GSI1',
+                IndexName: 'Gs1',
                 Projection: { ProjectionType: 'ALL' },
                 KeySchema: [
-                  { AttributeName: 'GSI1PK', KeyType: 'HASH' }, // GSI primary key
-                  { AttributeName: 'GSI1SK', KeyType: 'RANGE' }, // GSI sort key
+                  { AttributeName: 'Gs1Pk', KeyType: 'HASH' }, // GSI primary key
+                  { AttributeName: 'Gs1Sk', KeyType: 'RANGE' }, // GSI sort key
                 ],
                 ProvisionedThroughput: {
                   ReadCapacityUnits: 5,
@@ -73,11 +73,11 @@ async function prepareTable(client: DynamoDBClient) {
                 },
               },
               {
-                IndexName: 'GSI2',
+                IndexName: 'Gs2',
                 Projection: { ProjectionType: 'ALL' },
                 KeySchema: [
-                  { AttributeName: 'GSI2PK', KeyType: 'HASH' }, // GSI primary key
-                  { AttributeName: 'GSI2SK', KeyType: 'RANGE' }, // GSI sort key
+                  { AttributeName: 'Gs2Pk', KeyType: 'HASH' }, // GSI primary key
+                  { AttributeName: 'Gs2Sk', KeyType: 'RANGE' }, // GSI sort key
                 ],
                 ProvisionedThroughput: {
                   ReadCapacityUnits: 5,
@@ -92,7 +92,7 @@ async function prepareTable(client: DynamoDBClient) {
           }))
           .then(() => new Promise((resolve) => {
             setTimeout(() => resolve(
-              console.log('Successfully created auth table with 2 GSIs!')
+              console.log('Successfully created auth table!')
             ), 3000); // wait for table creation completion
           }));
       }
@@ -104,8 +104,8 @@ async function prepareTable(client: DynamoDBClient) {
       await client.send(new PutItemCommand({
         TableName: TableName,
         Item: marshall({
-          PK: `USER#${databaseUser.id}`,
-          SK: `USER#${databaseUser.id}`,
+          Pk: `USER#${databaseUser.id}`,
+          Sk: `USER#${databaseUser.id}`,
           HashedPassword: '123456',
           ...databaseUser.attributes
         }),
