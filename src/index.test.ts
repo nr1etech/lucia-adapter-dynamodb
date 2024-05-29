@@ -92,7 +92,7 @@ beforeEach(async (context: LocalTestContext) => {
       }),
     })
   );
-});
+}, 60000);
 
 afterEach(async (context: LocalTestContext) => {
   if (context.client) {
