@@ -24,12 +24,6 @@ const adapterWithTwoGSIs = new DynamoDBAdapter(client, {
   // options
 });
 
-// or
-const adapterWithOneGSI = new DynamoDBAdapter(client, {
-  gsiName: 'YourGSIName',
-  // other options
-});
-
 // pass the adapter to lucia
 ```
 
@@ -39,19 +33,10 @@ The adapter works with a single DynamoDB table and supports two possible table s
 
 The bare minimum requirement is that the partition keys and sort keys of the base table and all GSIs must be existent and belong to the "S" type.
 
-### With Two GSIs (Default)
-
 | *(Item Type)* | PK             | SK                   | GSI1PK               | GSI1SK               | GSI2PK          | GSI2SK            |
 | ------------- | -------------- | -------------------- | -------------------- | -------------------- | --------------- | ----------------- |
 | *User*        | USER#[User ID] | USER#[User ID]       |                      |                      |                 |                   |
 | *Session*     | USER#[User ID] | SESSION#[Session ID] | SESSION#[Session ID] | SESSION#[Session ID] | SESSION_EXPIRES | [ISO time string] |
-
-### With One GSI
-
-| *(Item Type)* | PK             | SK                   | GSIPK   | GSISK                | ExpiresAt (*Non-Key Attribute*) |
-| ------------- | -------------- | -------------------- | ------- | -------------------- | ------------------------------- |
-| *User*        | USER#[User ID] | USER#[User ID]       |         |                      |                                 |
-| *Session*     | USER#[User ID] | SESSION#[Session ID] | SESSION | SESSION#[Session ID] | [ISO time string]               |
 
 ### Table Creation Example
 
@@ -109,40 +94,6 @@ await client
       WriteCapacityUnits: 5,
     },
   }));
-
-// or, with one GSI
-await client
-  .send(new CreateTableCommand({
-    TableName: 'LuciaAuthTableWithOneGSI',
-    AttributeDefinitions: [
-      { AttributeName: 'PK', AttributeType: 'S' },
-      { AttributeName: 'SK', AttributeType: 'S' },
-      { AttributeName: 'GSIPK', AttributeType: 'S' },
-      { AttributeName: 'GSISK', AttributeType: 'S' },
-    ],
-    KeySchema: [
-      { AttributeName: 'PK', KeyType: 'HASH' }, // primary key
-      { AttributeName: 'SK', KeyType: 'RANGE' }, // sort key
-    ],
-    GlobalSecondaryIndexes: [
-      {
-        IndexName: 'GSI',
-        Projection: { ProjectionType: 'ALL' },
-        KeySchema: [
-          { AttributeName: 'GSIPK', KeyType: 'HASH' }, // GSI primary key
-          { AttributeName: 'GSISK', KeyType: 'RANGE' }, // GSI sort key
-        ],
-        ProvisionedThroughput: {
-          ReadCapacityUnits: 5,
-          WriteCapacityUnits: 5,
-        },
-      },
-    ],
-    ProvisionedThroughput: {
-      ReadCapacityUnits: 5,
-      WriteCapacityUnits: 5,
-    },
-  }));
 ```
 
 ## Constructor Options
@@ -157,8 +108,6 @@ class DynamoDBAdapter {
 
 The configuration object can be specified as follows:
 
-### With 2 GSIs
-
 | Option Object Attribute | Type     | Default Value  | Usage                                                        |
 | ----------------------- | -------- | -------------- | ------------------------------------------------------------ |
 | tableName               | string   | LuciaAuthTable | DynamoDB table name                                          |
@@ -170,19 +119,5 @@ The configuration object can be specified as follows:
 | gsi2Name                | string   | GSI2           | Index name of the second GSI                                 |
 | gsi2pk                  | string   | GSI2PK         | Second GSI partition key name                                |
 | gsi2sk                  | string   | GSI2SK         | Second GSI sort key name                                     |
-| extraUserAttributes     | string[] | []             | Names of non-key attributes in the DynamoDB table to be excluded from DatabaseUser objects |
-| extraSessionAttributes  | string[] | []             | Names of non-key attributes in the DynamoDB table to be excluded from DatabaseSession objects |
-
-### With 1 GSI
-
-| Option Object Attribute | Type     | Default Value  | Usage                                                        |
-| ----------------------- | -------- | -------------- | ------------------------------------------------------------ |
-| tableName               | string   | LuciaAuthTable | DynamoDB table name                                          |
-| pk                      | string   | PK             | Base table partition key name                                |
-| sk                      | string   | SK             | Base table sort key name                                     |
-| **gsiName**             | string   | GSI            | Index name of the GSI (**Explicitly set it to a non-empty string to use the one-GSI mode**) |
-| gsipk                   | string   | GSIPK          | GSI partition key name                                       |
-| gsisk                   | string   | GSISK          | GSI sort key name                                            |
-| expiresAt               | string   | ExpiresAt      | Name of the DynamoDB table attribute to store session expirations |
 | extraUserAttributes     | string[] | []             | Names of non-key attributes in the DynamoDB table to be excluded from DatabaseUser objects |
 | extraSessionAttributes  | string[] | []             | Names of non-key attributes in the DynamoDB table to be excluded from DatabaseSession objects |
