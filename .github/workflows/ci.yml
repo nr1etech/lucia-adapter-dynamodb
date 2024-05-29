@@ -8,7 +8,7 @@
   name: ci
   jobs:
     publish:
-      uses: nr1etech/github-workflows/.github/workflows/javascript-library.yml@main
+      uses: nr1etech/github-workflows/.github/workflows/javascript-library.yml@develop
       with:
         github-email: "365211+erikrj@users.noreply.github.com"
         github-name: "Erik Jensen"
@@ -19,3 +19,5 @@
       secrets:
         deploy-key: ${{ secrets.DEPLOY_KEY }}
         npm-auth-token: ${{ secrets.NPM_AUTH_TOKEN }}
+        app-id: ${{ secrets.RELEASE_BOT_ID }}
+        private-key: ${{ secrets.RELEASE_BOT_KEY }}
