@@ -1,0 +1,18 @@
+  on:
+    push:
+      branches:
+        - main
+        - develop
+    workflow_dispatch:
+  name: ci
+  jobs:
+    publish:
+      uses: nr1etech/github-workflows/.github/workflows/javascript-library.yml@main
+      with:
+        github-email: "365211+erikrj@users.noreply.github.com"
+        github-name: "Erik Jensen"
+        site-branch: 'main'
+        publish-dir: "dist"
+      secrets:
+        deploy-key: ${{ secrets.DEPLOY_KEY }}
+        npm-auth-token: ${{ secrets.NPM_AUTH_TOKEN }}
