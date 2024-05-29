@@ -29,7 +29,7 @@ const client = new DynamoDBClient({
     region: 'xx-xx-#',
 });
 
-const adapterWithTwoGSIs = new DynamoDBAdapter(client, {
+const adapter = new DynamoDBAdapter(client, {
     // options
 });
 
@@ -70,7 +70,6 @@ const client = new DynamoDBClient({
   // DynamoDB configs
 });
 
-// with two GSIs
 await client
   .send(new CreateTableCommand({
     TableName: 'LuciaAuthTable',
