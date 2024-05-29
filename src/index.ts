@@ -19,6 +19,8 @@ import type {
   DatabaseUser,
 } from 'lucia';
 
+export type GetUserFn = (client: DynamoDBClient, userId: string) => Promise<DatabaseUser | null>;
+
 type DynamoDBAdapterOptions = {
   tableName?: string;
   pk?: string;
@@ -35,6 +37,13 @@ type DynamoDBAdapterOptions = {
   gsi2sk?: string;
   extraUserAttributes?: string[];
   extraSessionAttributes?: string[];
+  /**
+   * Overrides the default implementation to retrieve user data.
+   *
+   * @param client the DynamoDBClient
+   * @param userId the user ID
+   */
+  getUser?: GetUserFn;
 };
 
 export class DynamoDBAdapter implements Adapter {
@@ -110,6 +119,7 @@ class DynamoDBAdapter1 implements Adapter {
   private expiresAt: string = 'ExpiresAt';
   private extraUserAttributes: string[] = [];
   private extraSessionAttributes: string[] = [];
+  private getUser?: GetUserFn;
 
   constructor(client: DynamoDBClient, options?: DynamoDBAdapterOptions) {
     this.client = client;
@@ -120,6 +130,7 @@ class DynamoDBAdapter1 implements Adapter {
     if (options?.gsipk) this.gsipk = options.gsipk;
     if (options?.gsisk) this.gsisk = options.gsisk;
     if (options?.expiresAt) this.expiresAt = options.expiresAt;
+    this.getUser = options?.getUser;
 
     if (options?.extraUserAttributes) {
       this.extraUserAttributes = [
@@ -212,17 +223,21 @@ class DynamoDBAdapter1 implements Adapter {
     }));
     if (!sessionRes?.Items?.length) return [null, null];
     const session = this.itemToSession(sessionRes.Items[0]);
-  
-    const userRes = await this.client.send(new GetItemCommand({
-      TableName: this.tableName,
-      Key: {
-        [this.pk]: { S: `USER#${session.userId}` },
-        [this.sk]: { S: `USER#${session.userId}` },
-      },
-    }));
-    if (!userRes?.Item) return [session, null];
-    const user = this.itemToUser(userRes.Item);
 
+    let user: DatabaseUser | null = null;
+    if (this.getUser) {
+      user = await this.getUser(this.client, session.userId);
+    } else {
+      const userRes = await this.client.send(new GetItemCommand({
+        TableName: this.tableName,
+        Key: {
+          [this.pk]: { S: `USER#${session.userId}` },
+          [this.sk]: { S: `USER#${session.userId}` },
+        },
+      }));
+      if (!userRes?.Item) return [session, null];
+      user = this.itemToUser(userRes.Item);
+    }
     return [session, user];
   }
 
@@ -420,6 +435,7 @@ class DynamoDBAdapter2 implements Adapter {
   private gsi2sk: string = 'GSI2SK';
   private extraUserAttributes: string[] = [];
   private extraSessionAttributes: string[] = [];
+  private getUser?: GetUserFn;
 
   constructor(client: DynamoDBClient, options?: DynamoDBAdapterOptions) {
     this.client = client;
@@ -444,6 +460,7 @@ class DynamoDBAdapter2 implements Adapter {
         ...options.extraSessionAttributes,
       ];
     }
+    this.getUser = options?.getUser;
   }
 
   public async deleteSession(sessionId: string): Promise<void> {
@@ -523,17 +540,21 @@ class DynamoDBAdapter2 implements Adapter {
     }));
     if (!sessionRes?.Items?.length) return [null, null];
     const session = this.itemToSession(sessionRes.Items[0]);
-  
-    const userRes = await this.client.send(new GetItemCommand({
-      TableName: this.tableName,
-      Key: {
-        [this.pk]: { S: `USER#${session.userId}` },
-        [this.sk]: { S: `USER#${session.userId}` },
-      },
-    }));
-    if (!userRes?.Item) return [session, null];
-    const user = this.itemToUser(userRes.Item);
 
+    let user: DatabaseUser | null = null;
+    if (this.getUser) {
+      user = await this.getUser(this.client, session.userId);
+    } else {
+      const userRes = await this.client.send(new GetItemCommand({
+        TableName: this.tableName,
+        Key: {
+          [this.pk]: {S: `USER#${session.userId}`},
+          [this.sk]: {S: `USER#${session.userId}`},
+        },
+      }));
+      if (!userRes?.Item) return [session, null];
+      user = this.itemToUser(userRes.Item);
+    }
     return [session, user];
   }
 
