@@ -9,417 +9,110 @@ import {
   type DynamoDBClient,
   type QueryCommandInput,
 } from '@aws-sdk/client-dynamodb';
-import {
-  marshall,
-  unmarshall
-} from '@aws-sdk/util-dynamodb';
-import type {
-  Adapter,
-  DatabaseSession,
-  DatabaseUser,
-} from 'lucia';
+import {marshall, unmarshall} from '@aws-sdk/util-dynamodb';
+import type {Adapter, DatabaseSession, DatabaseUser} from 'lucia';
 
-type DynamoDBAdapterOptions = {
+const MAX_BATCH_SIZE = 25;
+
+export type GetUserFn = (
+  client: DynamoDBClient,
+  userId: string
+) => Promise<DatabaseUser | null>;
+
+export interface DynamoDBAdapterOptions {
+  /**
+   * The name of the DynamoDB table to use. Default is 'LuciaAuthTable'.
+   */
   tableName?: string;
+
+  /**
+   * Attribute name on the DynamoDB table to hold the partition key. Default is 'Pk'.
+   */
   pk?: string;
+
+  /**
+   * Attribute name on the DynamoDB table to hold the sort key. Default is 'Sk'.
+   */
   sk?: string;
-  gsiName?: string;
-  gsipk?: string;
-  gsisk?: string;
-  expiresAt?: string;
-  gsi1Name?: string,
+
+  /**
+   * Name of the first GSI to use. Default is 'Gs1'.
+   */
+  gsi1Name?: string;
+
+  /**
+   * Attribute name on the DynamoDB table to hold the GSI1 partition key. Default is 'Gs1Pk'.
+   */
   gsi1pk?: string;
+
+  /**
+   * Attribute name on the DynamoDB table to hold the GSI1 sort key. Default is 'Gs1Sk'.
+   */
   gsi1sk?: string;
-  gsi2Name?: string,
+
+  /**
+   * Name of the second GSI to use. Default is 'Gs2'.
+   */
+  gsi2Name?: string;
+
+  /**
+   * Attribute name on the DynamoDB table to hold the GSI2 partition key. Default is 'Gs2Pk'.
+   */
   gsi2pk?: string;
+
+  /**
+   * Attribute name on the DynamoDB table to hold the GSI2 sort key. Default is 'Gs2Sk'.
+   */
   gsi2sk?: string;
+
+  /**
+   * Extra attributes to exclude from the user object. Default is an empty array.
+   */
   extraUserAttributes?: string[];
+
+  /**
+   * Extra attributes to exclude from the session object. Default is an empty array.
+   */
   extraSessionAttributes?: string[];
-};
 
-export class DynamoDBAdapter implements Adapter {
-  private instance: DynamoDBAdapter1 | DynamoDBAdapter2;
-  constructor(client: DynamoDBClient, options?: DynamoDBAdapterOptions) {
-    if (options?.gsiName) {
-      if (
-        options?.gsi1Name
-        || options?.gsi1pk
-        || options?.gsi1sk
-        || options?.gsi2Name
-        || options?.gsi2pk
-        || options?.gsi2sk
-      ) {
-        throw new Error('Invalid options: Configurations for GSI1 or GSI2 should not appear when GSI is specified');
-      } else {
-        this.instance = new DynamoDBAdapter1(client, options);
-      }
-    } else {
-      if (
-        options?.gsiName
-        || options?.gsipk
-        || options?.gsisk
-        || options?.expiresAt
-      ) {
-        throw new Error('Invalid options: Configurations for GSI1 or GSI2 should not appear when GSI is specified');
-      } else {
-        this.instance = new DynamoDBAdapter2(client, options);
-      }
-    }
-  }
+  /**
+   * Attribute name on the DynamoDB table to hold the expires value. Default is 'Expires'.
+   */
+  expires?: string;
 
-  public async deleteSession(sessionId: string): Promise<void> {
-    await this.instance.deleteSession(sessionId);
-  }
+  /**
+   * Overrides the default implementation to retrieve user data.
+   *
+   * @param client the DynamoDBClient
+   * @param userId the user ID
+   */
+  getUser?: GetUserFn;
 
-  public async deleteUserSessions(userId: string): Promise<void> {
-    await this.instance.deleteUserSessions(userId);
-  }
-
-  public async getSessionAndUser(sessionId: string): Promise<[session: DatabaseSession | null, user: DatabaseUser | null]> {
-    return await this.instance.getSessionAndUser(sessionId);
-  }
-
-  public async getUserSessions(userId: string): Promise<DatabaseSession[]> {
-    return await this.instance.getUserSessions(userId);
-  }
-
-  public async setSession(session: DatabaseSession): Promise<void> {
-    await this.instance.setSession(session);
-  }
-
-  public async updateSessionExpiration(sessionId: string, expiresAt: Date): Promise<void> {
-    await this.instance.updateSessionExpiration(sessionId, expiresAt);
-  }
-
-  public async deleteExpiredSessions(): Promise<void> {
-    await this.instance.deleteExpiredSessions();
-  }
-}
-
-/**
- * Adapter using a single GSI
- */
-class DynamoDBAdapter1 implements Adapter {
-  private client: DynamoDBClient;
-  private tableName: string = 'LuciaAuthTable';
-  private pk: string = 'PK';
-  private sk: string = 'SK';
-  private gsiName: string = 'GSI';
-  private gsipk: string = 'GSIPK';
-  private gsisk: string = 'GSISK';
-  private expiresAt: string = 'ExpiresAt';
-  private extraUserAttributes: string[] = [];
-  private extraSessionAttributes: string[] = [];
-
-  constructor(client: DynamoDBClient, options?: DynamoDBAdapterOptions) {
-    this.client = client;
-    if (options?.tableName) this.tableName = options.tableName;
-    if (options?.pk) this.pk = options.pk;
-    if (options?.sk) this.sk = options.sk;
-    if (options?.gsiName) this.gsiName = options.gsiName;
-    if (options?.gsipk) this.gsipk = options.gsipk;
-    if (options?.gsisk) this.gsisk = options.gsisk;
-    if (options?.expiresAt) this.expiresAt = options.expiresAt;
-
-    if (options?.extraUserAttributes) {
-      this.extraUserAttributes = [
-        ...this.extraUserAttributes,
-        ...options.extraUserAttributes,
-      ];
-    }
-    if (options?.extraSessionAttributes) {
-      this.extraSessionAttributes = [
-        ...this.extraSessionAttributes,
-        ...options.extraSessionAttributes,
-      ];
-    }
-  }
-
-  public async deleteSession(sessionId: string): Promise<void> {
-    // get key of the session to delete
-    const [session, user] = await this.getSessionAndUser(sessionId);
-    if (!session) return;
-
-    await this.client.send(new DeleteItemCommand({
-      TableName: this.tableName,
-      Key: {
-        [this.pk]: { S: `USER#${session.userId}` },
-        [this.sk]: { S: `SESSION#${sessionId}` },
-      },
-    }));
-  }
-
-  public async deleteUserSessions(userId: string): Promise<void> {
-    const keys = [];
-    let _lastEvaluatedKey: Record<string, AttributeValue> | undefined = undefined;
-
-    // get all keys to delete
-    do {
-      const commandInput: QueryCommandInput = {
-        TableName: this.tableName,
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk_prefix)',
-        ExpressionAttributeNames: {
-          '#pk': this.pk,
-          '#sk': this.sk,
-        },
-        ExpressionAttributeValues: {
-          ':pk': { S: `USER#${userId}` },
-          ':sk_prefix': { S: 'SESSION#' },
-        },
-        Select: 'SPECIFIC_ATTRIBUTES',
-        ProjectionExpression: '#pk, #sk',
-      };
-      if (_lastEvaluatedKey) commandInput.ExclusiveStartKey = _lastEvaluatedKey;
-      const res = await this.client.send(new QueryCommand(commandInput));
-      if (res?.Items?.length) {
-        keys.push(...res.Items.map((item) => ({
-          [this.pk]: item[this.pk],
-          [this.sk]: item[this.sk],
-        })));
-      }
-      _lastEvaluatedKey = res?.LastEvaluatedKey;
-    } while (_lastEvaluatedKey)
-
-    // delete all keys
-    const BATCH_SIZE = 25; // AWS DynamoDB rejects whole batch if batch size exceeds this limit
-    for (let i = 0; i < keys.length; i += BATCH_SIZE) {
-      const batch = keys.slice(i, i + BATCH_SIZE);
-      await this.client.send(new BatchWriteItemCommand({
-        RequestItems: {
-          [this.tableName]: batch.map((key) => ({
-            DeleteRequest: { Key: key },
-          })),
-        },
-      }));
-    }
-  }
-
-  public async getSessionAndUser(
-    sessionId: string
-  ): Promise<[session: DatabaseSession | null, user: DatabaseUser | null]> {
-    const sessionRes = await this.client.send(new QueryCommand({
-      TableName: this.tableName,
-      IndexName: this.gsiName,
-      KeyConditionExpression: '#gsipk = :gsipk AND #gsisk = :gsisk',
-      ExpressionAttributeNames: {
-        '#gsipk': this.gsipk,
-        '#gsisk': this.gsisk,
-      },
-      ExpressionAttributeValues: {
-        ':gsipk': { S: 'SESSION' },
-        ':gsisk': { S: `SESSION#${sessionId}` },
-      },
-    }));
-    if (!sessionRes?.Items?.length) return [null, null];
-    const session = this.itemToSession(sessionRes.Items[0]);
-  
-    const userRes = await this.client.send(new GetItemCommand({
-      TableName: this.tableName,
-      Key: {
-        [this.pk]: { S: `USER#${session.userId}` },
-        [this.sk]: { S: `USER#${session.userId}` },
-      },
-    }));
-    if (!userRes?.Item) return [session, null];
-    const user = this.itemToUser(userRes.Item);
-
-    return [session, user];
-  }
-
-  public async getUserSessions(userId: string): Promise<DatabaseSession[]> {
-    const sessions: DatabaseSession[] = [];
-    let _lastEvaluatedKey: Record<string, AttributeValue> | undefined = undefined;
-
-    do {
-      const commandInput: QueryCommandInput = {
-        TableName: this.tableName,
-        ExpressionAttributeNames: {
-          '#pk': this.pk,
-          '#sk': this.sk,
-        },
-        ExpressionAttributeValues: {
-          ':pk': { S: `USER#${userId}` },
-          ':sk_prefix': { S: 'SESSION#' },
-        },
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk_prefix)',
-      };
-      if (_lastEvaluatedKey) commandInput.ExclusiveStartKey = _lastEvaluatedKey;
-      const res = await this.client.send(new QueryCommand(commandInput));
-      if (res?.Items?.length) {
-        sessions.push(...res.Items.map((x) => this.itemToSession(x)));
-      }
-      _lastEvaluatedKey = res?.LastEvaluatedKey;
-    } while (_lastEvaluatedKey)
-
-    return sessions;
-  }
-
-  public async setSession(databaseSession: DatabaseSession): Promise<void> {
-    await this.client.send(new PutItemCommand({
-      TableName: this.tableName,
-      Item: marshall({
-        [this.pk]: `USER#${databaseSession.userId}`,
-        [this.sk]: `SESSION#${databaseSession.id}`,
-        [this.gsipk]: 'SESSION',
-        [this.gsisk]: `SESSION#${databaseSession.id}`,
-        [this.expiresAt]: databaseSession.expiresAt.toISOString(),
-        ...databaseSession.attributes,
-      }),
-    }));
-  }
-
-  public async updateSessionExpiration(sessionId: string, expiresAt: Date): Promise<void> {
-    // get key of the session to update
-    const sessionRes = await this.client.send(new QueryCommand({
-      TableName: this.tableName,
-      IndexName: this.gsiName,
-      KeyConditionExpression: '#gsipk = :gsipk AND #gsisk = :gsisk',
-      ExpressionAttributeNames: {
-        '#gsipk': this.gsipk,
-        '#gsisk': this.gsisk,
-      },
-      ExpressionAttributeValues: {
-        ':gsipk': { S: 'SESSION' },
-        ':gsisk': { S: `SESSION#${sessionId}` },
-      },
-    }));
-    if (!sessionRes?.Items?.length) return;
-    const session = this.itemToSession(sessionRes.Items[0]);
-
-    // update the session
-    await this.client.send(new UpdateItemCommand({
-      TableName: this.tableName,
-      Key: {
-        [this.pk]: { S: `USER#${session.userId}` },
-        [this.sk]: { S: `SESSION#${sessionId}` },
-      },
-      UpdateExpression: 'SET #expires_at = :expires_at',
-      ExpressionAttributeNames: {
-        '#expires_at': this.expiresAt,
-      },
-      ExpressionAttributeValues: {
-        ':expires_at': { S: expiresAt.toISOString() },
-      },
-    }));
-  }
-
-  public async deleteExpiredSessions(): Promise<void> {
-    // get all expired session keys to delete
-    let _lastEvaluatedKey: Record<string, AttributeValue> | undefined = undefined;
-    const keys = [];
-
-    do {
-      const commandInput: QueryCommandInput = {
-        TableName: this.tableName,
-        IndexName: this.gsiName,
-        ExpressionAttributeNames: {
-          '#pk': this.pk,
-          '#sk': this.sk,
-          '#gsipk': this.gsipk,
-          '#expires_at': this.expiresAt,
-        },
-        ExpressionAttributeValues: {
-          ':gsipk': { S: 'SESSION' },
-          ':expires_at_end': { S: new Date().toISOString() },
-        },
-        KeyConditionExpression: '#gsipk = :gsipk',
-        FilterExpression: '#expires_at < :expires_at_end',
-        Select: 'SPECIFIC_ATTRIBUTES',
-        ProjectionExpression: '#pk, #sk',
-      }
-      if (_lastEvaluatedKey) commandInput.ExclusiveStartKey = _lastEvaluatedKey;
-      const res = await this.client.send(new QueryCommand(commandInput));
-      if (res?.Items?.length) {
-        const expiredSessions = res.Items.map((x) => unmarshall(x));
-        keys.push(...expiredSessions.map((x) => ({
-          [this.pk]: { S: x[this.pk] },
-          [this.sk]: { S: x[this.sk] },
-        })));
-      }
-      _lastEvaluatedKey = res?.LastEvaluatedKey;
-    } while (_lastEvaluatedKey)
-
-    // delete all expired session keys
-    const BATCH_SIZE = 25; // AWS DynamoDB rejects whole batch if batch size exceeds this limit
-    for (let i = 0; i < keys.length; i += BATCH_SIZE) {
-      const batch = keys.slice(i, i + BATCH_SIZE);
-      await this.client.send(new BatchWriteItemCommand({
-        RequestItems: {
-          [this.tableName]: batch.map((key) => ({
-            DeleteRequest: { Key: key },
-          })),
-        },
-      }));
-    }
-  }
-
-  private itemToUser(item: Record<string, AttributeValue>): DatabaseUser {
-    const unmarshalled = unmarshall(item);
-    const {
-      [this.pk]: pk,
-      [this.sk]: sk,
-      [this.gsipk]: gsi1pk,
-      [this.gsisk]: gsi1sk,
-      [this.expiresAt]: expiresAt,
-      ...rest
-    } = unmarshalled;
-
-    const attributes = {};
-    for (const key in rest) {
-      if (!this.extraUserAttributes.includes(key)) {
-        Object.assign(attributes, { [key]: rest[key] });
-      }
-    }
-
-    return {
-      id: pk.split('#')[1],
-      attributes,
-    };
-  }
-
-  private itemToSession(item: Record<string, AttributeValue>): DatabaseSession {
-    const unmarshalled = unmarshall(item);
-    const {
-      [this.pk]: pk,
-      [this.sk]: sk,
-      [this.gsipk]: gsi1pk,
-      [this.gsisk]: gsi1sk,
-      [this.expiresAt]: expiresAt,
-      ...rest
-    } = unmarshalled;
-
-    const attributes = {};
-    for (const key in rest) {
-      if (!this.extraSessionAttributes.includes(key)) {
-        Object.assign(attributes, { [key]: rest[key] });
-      }
-    }
-
-    return {
-      id: sk.split('#')[1],
-      userId: pk.split('#')[1],
-      expiresAt: new Date(expiresAt),
-      attributes,
-    };
-  }
+  /**
+   * Whether to use consistent read when querying the table during getSessionAndUser. Default is false.
+   */
+  consistentRead?: boolean;
 }
 
 /**
  * Adapter using two GSIs
  */
-class DynamoDBAdapter2 implements Adapter {
+export class DynamoDBAdapter implements Adapter {
   private client: DynamoDBClient;
   private tableName: string = 'LuciaAuthTable';
-  private pk: string = 'PK';
-  private sk: string = 'SK';
-  private gsi1Name: string = 'GSI1';
-  private gsi1pk: string = 'GSI1PK';
-  private gsi1sk: string = 'GSI1SK';
-  private gsi2Name: string = 'GSI2';
-  private gsi2pk: string = 'GSI2PK';
-  private gsi2sk: string = 'GSI2SK';
+  private pk: string = 'Pk';
+  private sk: string = 'Sk';
+  private gsi1Name: string = 'Gs1';
+  private gsi1pk: string = 'Gs1Pk';
+  private gsi1sk: string = 'Gs1Sk';
+  private gsi2Name: string = 'Gs2';
+  private gsi2pk: string = 'Gs2Pk';
+  private gsi2sk: string = 'Gs2Sk';
   private extraUserAttributes: string[] = [];
   private extraSessionAttributes: string[] = [];
+  private expires: string;
+  private getUser?: GetUserFn;
+  private consistentRead: boolean;
 
   constructor(client: DynamoDBClient, options?: DynamoDBAdapterOptions) {
     this.client = client;
@@ -444,38 +137,44 @@ class DynamoDBAdapter2 implements Adapter {
         ...options.extraSessionAttributes,
       ];
     }
+    this.expires = options?.expires ?? 'Expires';
+    this.getUser = options?.getUser;
+    this.consistentRead = options?.consistentRead ?? false;
   }
 
   public async deleteSession(sessionId: string): Promise<void> {
-    // get key of the session to delete
-    const [session, user] = await this.getSessionAndUser(sessionId);
-    if (!session) return;
-
-    await this.client.send(new DeleteItemCommand({
-      TableName: this.tableName,
-      Key: {
-        [this.pk]: { S: `USER#${session.userId}` },
-        [this.sk]: { S: `SESSION#${sessionId}` },
-      },
-    }));
+    await this.client.send(
+      new DeleteItemCommand({
+        TableName: this.tableName,
+        Key: {
+          [this.pk]: {S: `Session#${sessionId}`},
+          [this.sk]: {S: 'Session'},
+        },
+      })
+    );
   }
 
   public async deleteUserSessions(userId: string): Promise<void> {
     const keys = [];
-    let _lastEvaluatedKey: Record<string, AttributeValue> | undefined = undefined;
+    let _lastEvaluatedKey: Record<string, AttributeValue> | undefined =
+      undefined;
 
     // get all keys to delete
     do {
       const commandInput: QueryCommandInput = {
         TableName: this.tableName,
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk_prefix)',
+        IndexName: this.gsi1Name,
+        KeyConditionExpression:
+          '#gs1pk = :gs1pk AND begins_with(#gs1sk, :gs1sk_prefix)',
         ExpressionAttributeNames: {
+          '#gs1pk': this.gsi1pk,
+          '#gs1sk': this.gsi1sk,
           '#pk': this.pk,
           '#sk': this.sk,
         },
         ExpressionAttributeValues: {
-          ':pk': { S: `USER#${userId}` },
-          ':sk_prefix': { S: 'SESSION#' },
+          ':gs1pk': {S: `User#${userId}`},
+          ':gs1sk_prefix': {S: 'Expires#'},
         },
         Select: 'SPECIFIC_ATTRIBUTES',
         ProjectionExpression: '#pk, #sk',
@@ -483,143 +182,165 @@ class DynamoDBAdapter2 implements Adapter {
       if (_lastEvaluatedKey) commandInput.ExclusiveStartKey = _lastEvaluatedKey;
       const res = await this.client.send(new QueryCommand(commandInput));
       if (res?.Items?.length) {
-        keys.push(...res.Items.map((item) => ({
-          [this.pk]: item[this.pk],
-          [this.sk]: item[this.sk],
-        })));
+        keys.push(
+          ...res.Items.map(item => ({
+            [this.pk]: item[this.pk],
+            [this.sk]: item[this.sk],
+          }))
+        );
       }
       _lastEvaluatedKey = res?.LastEvaluatedKey;
-    } while (_lastEvaluatedKey)
+    } while (_lastEvaluatedKey);
 
     // delete all keys
-    const BATCH_SIZE = 25; // AWS DynamoDB rejects whole batch if batch size exceeds this limit
-    for (let i = 0; i < keys.length; i += BATCH_SIZE) {
-      const batch = keys.slice(i, i + BATCH_SIZE);
-      await this.client.send(new BatchWriteItemCommand({
-        RequestItems: {
-          [this.tableName]: batch.map((key) => ({
-            DeleteRequest: { Key: key },
-          })),
-        },
-      }));
+    for (let i = 0; i < keys.length; i += MAX_BATCH_SIZE) {
+      const batch = keys.slice(i, i + MAX_BATCH_SIZE);
+      await this.client.send(
+        new BatchWriteItemCommand({
+          RequestItems: {
+            [this.tableName]: batch.map(key => ({
+              DeleteRequest: {Key: key},
+            })),
+          },
+        })
+      );
     }
   }
 
   public async getSessionAndUser(
     sessionId: string
   ): Promise<[session: DatabaseSession | null, user: DatabaseUser | null]> {
-    const sessionRes = await this.client.send(new QueryCommand({
-      TableName: this.tableName,
-      IndexName: this.gsi1Name,
-      KeyConditionExpression: '#gsi1pk = :gsi1pk AND #gsi1sk = :gsi1sk',
-      ExpressionAttributeNames: {
-        '#gsi1pk': this.gsi1pk,
-        '#gsi1sk': this.gsi1sk,
-      },
-      ExpressionAttributeValues: {
-        ':gsi1pk': { S: `SESSION#${sessionId}` },
-        ':gsi1sk': { S: `SESSION#${sessionId}` },
-      },
-    }));
-    if (!sessionRes?.Items?.length) return [null, null];
-    const session = this.itemToSession(sessionRes.Items[0]);
-  
-    const userRes = await this.client.send(new GetItemCommand({
-      TableName: this.tableName,
-      Key: {
-        [this.pk]: { S: `USER#${session.userId}` },
-        [this.sk]: { S: `USER#${session.userId}` },
-      },
-    }));
-    if (!userRes?.Item) return [session, null];
-    const user = this.itemToUser(userRes.Item);
-
-    return [session, user];
-  }
-
-  public async getUserSessions(userId: string): Promise<DatabaseSession[]> {
-    const sessions: DatabaseSession[] = [];
-    let _lastEvaluatedKey: Record<string, AttributeValue> | undefined = undefined;
-
-    do {
-      const commandInput: QueryCommandInput = {
+    const sessionRes = await this.client.send(
+      new QueryCommand({
         TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND #sk = :sk',
         ExpressionAttributeNames: {
           '#pk': this.pk,
           '#sk': this.sk,
         },
         ExpressionAttributeValues: {
-          ':pk': { S: `USER#${userId}` },
-          ':sk_prefix': { S: 'SESSION#' },
+          ':pk': {S: `Session#${sessionId}`},
+          ':sk': {S: 'Session'},
         },
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :sk_prefix)',
+        ConsistentRead: this.consistentRead,
+      })
+    );
+    if (!sessionRes?.Items?.length) return [null, null];
+    const session = this.itemToSession(sessionRes.Items[0]);
+
+    let user: DatabaseUser | null = null;
+    if (this.getUser) {
+      user = await this.getUser(this.client, session.userId);
+    } else {
+      const userRes = await this.client.send(
+        new GetItemCommand({
+          TableName: this.tableName,
+          Key: {
+            [this.pk]: {S: `User#${session.userId}`},
+            [this.sk]: {S: 'User'},
+          },
+        })
+      );
+      if (!userRes?.Item) return [session, null];
+      user = this.itemToUser(userRes.Item);
+    }
+    return [session, user];
+  }
+
+  public async getUserSessions(userId: string): Promise<DatabaseSession[]> {
+    const sessions: DatabaseSession[] = [];
+    let _lastEvaluatedKey: Record<string, AttributeValue> | undefined =
+      undefined;
+
+    do {
+      const commandInput: QueryCommandInput = {
+        TableName: this.tableName,
+        IndexName: this.gsi1Name,
+        ExpressionAttributeNames: {
+          '#gs1pk': this.gsi1pk,
+          '#gs1sk': this.gsi1sk,
+        },
+        ExpressionAttributeValues: {
+          ':gs1pk': {S: `User#${userId}`},
+          ':gs1sk_prefix': {S: 'Expires#'},
+        },
+        KeyConditionExpression:
+          '#gs1pk = :gs1pk AND begins_with(#gs1sk, :gs1sk_prefix)',
       };
       if (_lastEvaluatedKey) commandInput.ExclusiveStartKey = _lastEvaluatedKey;
       const res = await this.client.send(new QueryCommand(commandInput));
       if (res?.Items?.length) {
-        sessions.push(...res.Items.map((x) => this.itemToSession(x)));
+        sessions.push(...res.Items.map(x => this.itemToSession(x)));
       }
       _lastEvaluatedKey = res?.LastEvaluatedKey;
-    } while (_lastEvaluatedKey)
+    } while (_lastEvaluatedKey);
 
     return sessions;
   }
 
   public async setSession(databaseSession: DatabaseSession): Promise<void> {
-    await this.client.send(new PutItemCommand({
-      TableName: this.tableName,
-      Item: marshall({
-        [this.pk]: `USER#${databaseSession.userId}`,
-        [this.sk]: `SESSION#${databaseSession.id}`,
-        [this.gsi1pk]: `SESSION#${databaseSession.id}`,
-        [this.gsi1sk]: `SESSION#${databaseSession.id}`,
-        [this.gsi2pk]: 'SESSION_EXPIRES',
-        [this.gsi2sk]: databaseSession.expiresAt.toISOString(),
-        ...databaseSession.attributes,
-      }),
-    }));
+    const expires = Math.floor(databaseSession.expiresAt.getTime() / 1000);
+    await this.client.send(
+      new PutItemCommand({
+        TableName: this.tableName,
+        Item: marshall({
+          [this.pk]: `Session#${databaseSession.id}`,
+          [this.sk]: 'Session',
+          [this.gsi1pk]: `User#${databaseSession.userId}`,
+          [this.gsi1sk]: `Expires#${expires}`,
+          [this.gsi2pk]: 'Session',
+          [this.gsi2sk]: `Expires#${expires}`,
+          [this.expires]: expires,
+          ...databaseSession.attributes,
+        }),
+      })
+    );
   }
 
-  public async updateSessionExpiration(sessionId: string, expiresAt: Date): Promise<void> {
-    // get key of the session to update
-    const sessionRes = await this.client.send(new QueryCommand({
-      TableName: this.tableName,
-      IndexName: this.gsi1Name,
-      KeyConditionExpression: '#gsi1pk = :gsi1pk AND #gsi1sk = :gsi1sk',
-      ExpressionAttributeNames: {
-        '#gsi1pk': this.gsi1pk,
-        '#gsi1sk': this.gsi1sk,
-      },
-      ExpressionAttributeValues: {
-        ':gsi1pk': { S: `SESSION#${sessionId}` },
-        ':gsi1sk': { S: `SESSION#${sessionId}` },
-      },
-    }));
-    if (!sessionRes?.Items?.length) return;
-    const session = this.itemToSession(sessionRes.Items[0]);
-
-    // update the session
-    await this.client.send(new UpdateItemCommand({
-      TableName: this.tableName,
-      Key: {
-        [this.pk]: { S: `USER#${session.userId}` },
-        [this.sk]: { S: `SESSION#${sessionId}` },
-      },
-      UpdateExpression: 'SET #gsi2sk = :gsi2sk',
-      ExpressionAttributeNames: {
-        '#gsi2sk': this.gsi2sk,
-      },
-      ExpressionAttributeValues: {
-        ':gsi2sk': { S: expiresAt.toISOString() },
-      },
-    }));
+  public async updateSessionExpiration(
+    sessionId: string,
+    expiresAt: Date
+  ): Promise<void> {
+    if (expiresAt.getTime() > Date.now()) {
+      const expires = Math.floor(expiresAt.getTime() / 1000);
+      // update the session
+      await this.client.send(
+        new UpdateItemCommand({
+          TableName: this.tableName,
+          Key: {
+            [this.pk]: {S: `Session#${sessionId}`},
+            [this.sk]: {S: 'Session'},
+          },
+          UpdateExpression:
+            'SET #gs1sk = :gs1sk, #gs2sk = :gs2sk, #expires = :expires',
+          ConditionExpression: '#pk = :pk AND #sk = :sk',
+          ExpressionAttributeNames: {
+            '#gs1sk': this.gsi1sk,
+            '#gs2sk': this.gsi2sk,
+            '#expires': this.expires,
+            '#pk': this.pk,
+            '#sk': this.sk,
+          },
+          ExpressionAttributeValues: {
+            ':gs1sk': {S: `Expires#${expires}`},
+            ':gs2sk': {S: `Expires#${expires}`},
+            ':expires': {N: `${expires}`},
+            ':pk': {S: `Session#${sessionId}`},
+            ':sk': {S: 'Session'},
+          },
+        })
+      );
+    } else {
+      await this.deleteSession(sessionId);
+    }
   }
 
   public async deleteExpiredSessions(): Promise<void> {
+    const now = Math.floor(new Date().getTime() / 1000);
     // get all expired session keys to delete
-    let _lastEvaluatedKey: Record<string, AttributeValue> | undefined = undefined;
+    let _lastEvaluatedKey: Record<string, AttributeValue> | undefined =
+      undefined;
     const keys = [];
-
     do {
       const commandInput: QueryCommandInput = {
         TableName: this.tableName,
@@ -627,40 +348,43 @@ class DynamoDBAdapter2 implements Adapter {
         ExpressionAttributeNames: {
           '#pk': this.pk,
           '#sk': this.sk,
-          '#gsi2pk': this.gsi2pk,
-          '#gsi2sk': this.gsi2sk,
+          '#gs2pk': this.gsi2pk,
+          '#gs2sk': this.gsi2sk,
         },
         ExpressionAttributeValues: {
-          ':gsi2pk': { S: 'SESSION_EXPIRES' },
-          ':gsi2sk_end': { S: new Date().toISOString() },
+          ':gs2pk': {S: 'Session'},
+          ':gs2sk_end': {S: `Expires#${now}`},
         },
-        KeyConditionExpression: '#gsi2pk = :gsi2pk AND #gsi2sk < :gsi2sk_end',
+        KeyConditionExpression: '#gs2pk = :gs2pk AND #gs2sk < :gs2sk_end',
         Select: 'SPECIFIC_ATTRIBUTES',
         ProjectionExpression: '#pk, #sk',
-      }
+      };
       if (_lastEvaluatedKey) commandInput.ExclusiveStartKey = _lastEvaluatedKey;
       const res = await this.client.send(new QueryCommand(commandInput));
       if (res?.Items?.length) {
-        const expiredSessions = res.Items.map((x) => unmarshall(x));
-        keys.push(...expiredSessions.map((x) => ({
-          [this.pk]: { S: x[this.pk] },
-          [this.sk]: { S: x[this.sk] },
-        })));
+        const expiredSessions = res.Items.map(x => unmarshall(x));
+        keys.push(
+          ...expiredSessions.map(x => ({
+            [this.pk]: {S: x[this.pk]},
+            [this.sk]: {S: x[this.sk]},
+          }))
+        );
       }
       _lastEvaluatedKey = res?.LastEvaluatedKey;
-    } while (_lastEvaluatedKey)
+    } while (_lastEvaluatedKey);
 
     // delete all expired session keys
-    const BATCH_SIZE = 25; // AWS DynamoDB rejects whole batch if batch size exceeds this limit
-    for (let i = 0; i < keys.length; i += BATCH_SIZE) {
-      const batch = keys.slice(i, i + BATCH_SIZE);
-      await this.client.send(new BatchWriteItemCommand({
-        RequestItems: {
-          [this.tableName]: batch.map((key) => ({
-            DeleteRequest: { Key: key },
-          })),
-        },
-      }));
+    for (let i = 0; i < keys.length; i += MAX_BATCH_SIZE) {
+      const batch = keys.slice(i, i + MAX_BATCH_SIZE);
+      await this.client.send(
+        new BatchWriteItemCommand({
+          RequestItems: {
+            [this.tableName]: batch.map(key => ({
+              DeleteRequest: {Key: key},
+            })),
+          },
+        })
+      );
     }
   }
 
@@ -673,13 +397,14 @@ class DynamoDBAdapter2 implements Adapter {
       [this.gsi1sk]: gsi1sk,
       [this.gsi2pk]: gsi2pk,
       [this.gsi2sk]: gsi2sk,
+      [this.expires]: expires,
       ...rest
     } = unmarshalled;
 
     const attributes = {};
     for (const key in rest) {
       if (!this.extraUserAttributes.includes(key)) {
-        Object.assign(attributes, { [key]: rest[key] });
+        Object.assign(attributes, {[key]: rest[key]});
       }
     }
 
@@ -698,22 +423,22 @@ class DynamoDBAdapter2 implements Adapter {
       [this.gsi1sk]: gsi1sk,
       [this.gsi2pk]: gsi2pk,
       [this.gsi2sk]: gsi2sk,
+      [this.expires]: expires,
       ...rest
     } = unmarshalled;
 
     const attributes = {};
     for (const key in rest) {
       if (!this.extraSessionAttributes.includes(key)) {
-        Object.assign(attributes, { [key]: rest[key] });
+        Object.assign(attributes, {[key]: rest[key]});
       }
     }
 
     return {
-      id: sk.split('#')[1],
-      userId: pk.split('#')[1],
-      expiresAt: new Date(gsi2sk),
+      id: pk.split('#')[1],
+      userId: gsi1pk.split('#')[1],
+      expiresAt: new Date(expires * 1000),
       attributes,
     };
   }
-
 }
