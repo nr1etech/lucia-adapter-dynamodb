@@ -1,18 +1,16 @@
 {
   "name": "@nr1e/lucia-adapter-dynamodb",
-  "version": "3.0.2",
+  "version": "3.0.2-alpha.4",
   "type": "module",
   "description": "A DynamoDB adapter for lucia-auth",
   "main": "dist/index.js",
   "module": "dist/index.d.js",
   "files": [
-    "dist/*",
-    "README.md",
-    "LICENSE"
+    "**"
   ],
   "scripts": {
     "build": "tsc",
-    "postbuild": "prettier --check . && gts lint && cp package.json dist",
+    "postbuild": "prettier --check . && gts lint && cp README.md package.json dist",
     "watch": "tsc -w",
     "test": "vitest run --coverage",
     "lint": "gts lint",
@@ -54,5 +52,11 @@
   },
   "peerDependencies": {
     "lucia": "3.x"
+  },
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "types": "./index.d.ts"
+    }
   }
 }
