@@ -11,7 +11,7 @@
   name: ci
   jobs:
     publish:
-      uses: nr1etech/github-workflows/.github/workflows/javascript-library.yml@develop
+      uses: nr1etech/github-workflows/.github/workflows/javascript-library.yml@main
       with:
         publish-dir: "dist"
         node-versions: '[20,22]'
