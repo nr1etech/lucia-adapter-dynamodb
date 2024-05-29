@@ -1,3 +1,11 @@
+notes.txt
+*.zip
+*.js
+!jest.config.js
+*.d.ts
+*.d.ts.map
+*.js.map
 node_modules
 dist
+site
 coverage
