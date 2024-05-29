@@ -1,5 +1,9 @@
 # A DynamoDB Adapter For [lucia-auth](https://github.com/lucia-auth/lucia)
 
+[![NPM Version][npm-image]][npm-url]
+[![TypeScript Style Guide][gts-image]][gts-url]
+[![GitHub Actions][github-image]][github-url]
+
 This is a fork of [lucida-adapter-dynamodb](https://github.com/choutianxius/lucia-adapter-dynamodb).
 
 These modifications were made to suit some specific needs which include
@@ -156,3 +160,10 @@ The configuration object can be specified as follows:
 | expires                 | string   | Expires        | Name of the column that stores the session expiration time in seconds since epoch             |
 | extraUserAttributes     | string[] | []             | Names of non-key attributes in the DynamoDB table to be excluded from DatabaseUser objects    |
 | extraSessionAttributes  | string[] | []             | Names of non-key attributes in the DynamoDB table to be excluded from DatabaseSession objects |
+
+[github-url]: https://github.com/nr1etech/lucia-adapter-dynamodb/actions
+[github-image]: https://github.com/nr1etech/lucia-adapter-dynamodb/workflows/ci/badge.svg
+[npm-url]: https://npmjs.org/package/@nr1e/lucia-adapter-dynamodb
+[npm-image]: https://img.shields.io/npm/v/@nre1/lucia-adapter-dynamodb.svg
+[gts-image]: https://img.shields.io/badge/code%20style-google-blueviolet.svg
+[gts-url]: https://github.com/google/gts
