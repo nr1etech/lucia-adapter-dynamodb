@@ -14,7 +14,8 @@
     "watch": "tsc -w",
     "test": "tsx tests/index.ts",
     "build": "shx rm -rf ./dist/* && tsc",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "docker-test": "docker compose run --rm app npm run test && docker compose down"
   },
   "repository": {
     "type": "git",
