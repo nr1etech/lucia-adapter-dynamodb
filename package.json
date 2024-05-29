@@ -12,10 +12,10 @@
   "type": "module",
   "scripts": {
     "watch": "tsc -w",
-    "test": "tsx tests/index.ts",
+    "test": "vitest run --coverage",
     "build": "shx rm -rf ./dist/* && tsc",
-    "lint": "eslint .",
-    "docker-test": "docker compose run --rm app npm run test && docker compose down"
+    "clean": "shx rm -rf ./dist && shx rm -rf ./coverage",
+    "lint": "eslint ."
   },
   "repository": {
     "type": "git",
@@ -37,12 +37,15 @@
     "@aws-sdk/util-dynamodb": "^3.525.0",
     "@lucia-auth/adapter-test": "^5.0.0",
     "@types/node": "^20.11.25",
+    "@vitest/coverage-v8": "^1.6.0",
     "eslint": "^8.57.0",
     "lucia": "^3.0.1",
     "shx": "^0.3.4",
+    "testcontainers": "^10.9.0",
     "tsx": "^4.7.1",
     "typescript": "^5.4.2",
-    "typescript-eslint": "^7.4.0"
+    "typescript-eslint": "^7.4.0",
+    "vitest": "^1.6.0"
   },
   "peerDependencies": {
     "lucia": "3.x"
