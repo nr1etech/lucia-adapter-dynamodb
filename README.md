@@ -22,15 +22,15 @@ import {DynamoDBClient} from '@aws-sdk/client-dynamodb';
 import {DynamoDBAdapter} from 'lucia-adapter-dynamodb';
 
 const client = new DynamoDBClient({
-    credentials: {
-        accessKeyId: 'xxx',
-        secretAccessKey: 'verysecret',
-    },
-    region: 'xx-xx-#',
+  credentials: {
+    accessKeyId: 'xxx',
+    secretAccessKey: 'verysecret',
+  },
+  region: 'xx-xx-#',
 });
 
 const adapter = new DynamoDBAdapter(client, {
-    // options
+  // options
 });
 
 // pass the adapter to lucia
@@ -41,7 +41,7 @@ const adapter = new DynamoDBAdapter(client, {
 ### Session Schema
 
 | Field   | Pattern              |
-|---------|----------------------|
+| ------- | -------------------- |
 | Pk      | Session#[Session ID] |
 | Sk      | Session              |
 | Gs1Pk   | User#[User ID]       |
@@ -55,10 +55,10 @@ const adapter = new DynamoDBAdapter(client, {
 You may override the user schema by providing a custom `getUser` function to the adapter. The default schema is as
 follows:
 
-| Field   | Pattern         |
-|---------|-----------------|
-| Pk      | User#[User ID]  |
-| Sk      | User            |
+| Field | Pattern        |
+| ----- | -------------- |
+| Pk    | User#[User ID] |
+| Sk    | User           |
 
 ### Table Creation Example
 
@@ -70,8 +70,8 @@ const client = new DynamoDBClient({
   // DynamoDB configs
 });
 
-await client
-  .send(new CreateTableCommand({
+await client.send(
+  new CreateTableCommand({
     TableName: 'LuciaAuthTable',
     AttributeDefinitions: [
       {AttributeName: 'Pk', AttributeType: 'S'},
@@ -115,15 +115,18 @@ await client
       ReadCapacityUnits: 5,
       WriteCapacityUnits: 5,
     },
-  }));
+  })
+);
 
-  await client.send(new UpdateTimeToLiveCommand({
+await client.send(
+  new UpdateTimeToLiveCommand({
     TableName: 'LuciaAuthTable',
     TimeToLiveSpecification: {
       AttributeName: 'Expires',
       Enabled: true,
     },
-  }));
+  })
+);
 ```
 
 ## Constructor Options
@@ -139,17 +142,17 @@ class DynamoDBAdapter {
 
 The configuration object can be specified as follows:
 
-| Option Object Attribute | Type     | Default Value  | Usage                                                                                          |
-|-------------------------|----------|----------------|------------------------------------------------------------------------------------------------|
-| tableName               | string   | LuciaAuthTable | DynamoDB table name                                                                            |
-| pk                      | string   | Pk             | Base table partition key name                                                                  |
-| sk                      | string   | Sk             | Base table sort key name                                                                       |
-| gsi1Name                | string   | Gs1            | Index name of the first GSI                                                                    |
-| gsi1pk                  | string   | Gs1Pk          | First GSI partition key name                                                                   |
-| gsi1sk                  | string   | Gs1Sk          | First GSI sort key name                                                                        |
-| gsi2Name                | string   | Gs2            | Index name of the second GSI                                                                   |
-| gsi2pk                  | string   | Gs2Pk          | Second GSI partition key name                                                                  |
-| gsi2sk                  | string   | Gs2Sk          | Second GSI sort key name                                                                       |
-| expires                 | string   | Expires        | Name of the column that stores the session expiration time in seconds since epoch              |  
-| extraUserAttributes     | string[] | []             | Names of non-key attributes in the DynamoDB table to be excluded from DatabaseUser objects     |
-| extraSessionAttributes  | string[] | []             | Names of non-key attributes in the DynamoDB table to be excluded from DatabaseSession objects  |
+| Option Object Attribute | Type     | Default Value  | Usage                                                                                         |
+| ----------------------- | -------- | -------------- | --------------------------------------------------------------------------------------------- |
+| tableName               | string   | LuciaAuthTable | DynamoDB table name                                                                           |
+| pk                      | string   | Pk             | Base table partition key name                                                                 |
+| sk                      | string   | Sk             | Base table sort key name                                                                      |
+| gsi1Name                | string   | Gs1            | Index name of the first GSI                                                                   |
+| gsi1pk                  | string   | Gs1Pk          | First GSI partition key name                                                                  |
+| gsi1sk                  | string   | Gs1Sk          | First GSI sort key name                                                                       |
+| gsi2Name                | string   | Gs2            | Index name of the second GSI                                                                  |
+| gsi2pk                  | string   | Gs2Pk          | Second GSI partition key name                                                                 |
+| gsi2sk                  | string   | Gs2Sk          | Second GSI sort key name                                                                      |
+| expires                 | string   | Expires        | Name of the column that stores the session expiration time in seconds since epoch             |
+| extraUserAttributes     | string[] | []             | Names of non-key attributes in the DynamoDB table to be excluded from DatabaseUser objects    |
+| extraSessionAttributes  | string[] | []             | Names of non-key attributes in the DynamoDB table to be excluded from DatabaseSession objects |
