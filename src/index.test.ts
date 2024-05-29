@@ -95,7 +95,9 @@ beforeEach(async (context: LocalTestContext) => {
 });
 
 afterEach(async (context: LocalTestContext) => {
-  await context.container.stop();
+  if (context.client) {
+    await context.container.stop();
+  }
 });
 
 test('Test DynamoDBAdapter', async (context: LocalTestContext) => {
