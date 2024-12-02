@@ -1,12 +1,11 @@
 import {test, beforeEach, afterEach} from 'vitest';
-import {testAdapter, databaseUser} from '@lucia-auth/adapter-test';
-import {DynamoDBAdapter} from '../src/index.js';
+import {databaseUser, testAdapter} from '@lucia-auth/adapter-test';
+import {DynamoDBAdapter} from './index';
 import {
   CreateTableCommand,
   DynamoDBClient,
-  PutItemCommand,
+  UpdateTimeToLiveCommand,
 } from '@aws-sdk/client-dynamodb';
-import {marshall} from '@aws-sdk/util-dynamodb';
 import {StartedTestContainer, GenericContainer, Wait} from 'testcontainers';
 
 const TableName = 'LuciaAuthTable';
@@ -35,61 +34,44 @@ beforeEach(async (context: LocalTestContext) => {
 
   await context.client.send(
     new CreateTableCommand({
-      TableName: TableName,
+      TableName: 'LuciaAuthTable',
       AttributeDefinitions: [
-        {AttributeName: 'Pk', AttributeType: 'S'},
-        {AttributeName: 'Sk', AttributeType: 'S'},
-        {AttributeName: 'Gs1Pk', AttributeType: 'S'},
-        {AttributeName: 'Gs1Sk', AttributeType: 'S'},
-        {AttributeName: 'Gs2Pk', AttributeType: 'S'},
-        {AttributeName: 'Gs2Sk', AttributeType: 'S'},
+        {AttributeName: 'sid', AttributeType: 'S'},
+        {AttributeName: 'uid', AttributeType: 'S'},
+        {AttributeName: 'typ', AttributeType: 'S'},
+        {AttributeName: 'exp', AttributeType: 'N'},
       ],
       KeySchema: [
-        {AttributeName: 'Pk', KeyType: 'HASH'}, // primary key
-        {AttributeName: 'Sk', KeyType: 'RANGE'}, // sort key
+        {AttributeName: 'sid', KeyType: 'HASH'}, // primary key
       ],
       GlobalSecondaryIndexes: [
         {
           IndexName: 'Gs1',
           Projection: {ProjectionType: 'ALL'},
           KeySchema: [
-            {AttributeName: 'Gs1Pk', KeyType: 'HASH'}, // GSI primary key
-            {AttributeName: 'Gs1Sk', KeyType: 'RANGE'}, // GSI sort key
+            {AttributeName: 'uid', KeyType: 'HASH'}, // GSI primary key
           ],
-          ProvisionedThroughput: {
-            ReadCapacityUnits: 5,
-            WriteCapacityUnits: 5,
-          },
         },
         {
           IndexName: 'Gs2',
           Projection: {ProjectionType: 'ALL'},
           KeySchema: [
-            {AttributeName: 'Gs2Pk', KeyType: 'HASH'}, // GSI primary key
-            {AttributeName: 'Gs2Sk', KeyType: 'RANGE'}, // GSI sort key
+            {AttributeName: 'typ', KeyType: 'HASH'}, // GSI primary key
+            {AttributeName: 'exp', KeyType: 'RANGE'}, // GSI sort key
           ],
-          ProvisionedThroughput: {
-            ReadCapacityUnits: 5,
-            WriteCapacityUnits: 5,
-          },
         },
       ],
-      ProvisionedThroughput: {
-        ReadCapacityUnits: 5,
-        WriteCapacityUnits: 5,
-      },
+      BillingMode: 'PAY_PER_REQUEST',
     }),
   );
 
   await context.client.send(
-    new PutItemCommand({
+    new UpdateTimeToLiveCommand({
       TableName: TableName,
-      Item: marshall({
-        Pk: `User#${databaseUser.id}`,
-        Sk: 'User',
-        HashedPassword: '123456',
-        ...databaseUser.attributes,
-      }),
+      TimeToLiveSpecification: {
+        AttributeName: 'exp',
+        Enabled: true,
+      },
     }),
   );
 }, 60000);
@@ -101,9 +83,17 @@ afterEach(async (context: LocalTestContext) => {
 });
 
 test('Test DynamoDBAdapter', async (context: LocalTestContext) => {
-  const adapter = new DynamoDBAdapter(context.client, {
+  const adapter = new DynamoDBAdapter({
+    client: context.client,
     tableName: TableName,
-    extraUserAttributes: ['HashedPassword'],
+    getUser: async () => {
+      return {
+        id: databaseUser.id,
+        attributes: {
+          ...databaseUser.attributes,
+        },
+      };
+    },
   });
   await testAdapter(adapter);
 });
