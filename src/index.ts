@@ -14,11 +14,17 @@ import type {Adapter, DatabaseSession, DatabaseUser} from 'lucia';
 
 const MAX_BATCH_SIZE = 25;
 
+/**
+ * Function to retrieve a user.
+ */
 export type GetUserFn = (
   userId: string,
   client: DynamoDBClient,
 ) => Promise<DatabaseUser | null>;
 
+/**
+ * Properties for DynamoDBAdapter.
+ */
 export interface DynamoDBAdapterProps {
   /**
    * The DynamoDB client to use.
@@ -58,10 +64,10 @@ export interface DynamoDBAdapterProps {
  * Adapter using two GSIs
  */
 export class DynamoDBAdapter implements Adapter {
-  private client: DynamoDBClient;
-  private tableName: string = 'LuciaAuthTable';
-  private getUser: GetUserFn;
-  private consistentRead: boolean;
+  protected client: DynamoDBClient;
+  protected tableName: string = 'LuciaAuthTable';
+  protected getUser: GetUserFn;
+  protected consistentRead: boolean;
 
   constructor(options: DynamoDBAdapterProps) {
     this.client = options.client;
@@ -81,27 +87,15 @@ export class DynamoDBAdapter implements Adapter {
     );
   }
 
-  public async deleteUserSessions(userId: string): Promise<void> {
-    const keys = [];
+  protected async deleteSessions(
+    commandInput: QueryCommandInput,
+  ): Promise<void> {
     let _lastEvaluatedKey: Record<string, AttributeValue> | undefined =
       undefined;
+    const keys = [];
 
-    // get all keys to delete
+    // query keys
     do {
-      const commandInput: QueryCommandInput = {
-        TableName: this.tableName,
-        IndexName: 'Gs1',
-        KeyConditionExpression: '#uid = :uid',
-        ExpressionAttributeNames: {
-          '#uid': 'uid',
-          '#sid': 'sid',
-        },
-        ExpressionAttributeValues: {
-          ':uid': {S: userId},
-        },
-        Select: 'SPECIFIC_ATTRIBUTES',
-        ProjectionExpression: '#sid',
-      };
       if (_lastEvaluatedKey) commandInput.ExclusiveStartKey = _lastEvaluatedKey;
       const res = await this.client.send(new QueryCommand(commandInput));
       if (res?.Items?.length) {
@@ -113,21 +107,38 @@ export class DynamoDBAdapter implements Adapter {
         );
       }
       _lastEvaluatedKey = res?.LastEvaluatedKey;
-    } while (_lastEvaluatedKey);
 
-    // delete all keys
-    for (let i = 0; i < keys.length; i += MAX_BATCH_SIZE) {
-      const batch = keys.slice(i, i + MAX_BATCH_SIZE);
-      await this.client.send(
-        new BatchWriteItemCommand({
-          RequestItems: {
-            [this.tableName]: batch.map((key) => ({
-              DeleteRequest: {Key: key},
-            })),
-          },
-        }),
-      );
-    }
+      // delete all keys
+      for (let i = 0; i < keys.length; i += MAX_BATCH_SIZE) {
+        const batch = keys.slice(i, i + MAX_BATCH_SIZE);
+        await this.client.send(
+          new BatchWriteItemCommand({
+            RequestItems: {
+              [this.tableName]: batch.map((key) => ({
+                DeleteRequest: {Key: key},
+              })),
+            },
+          }),
+        );
+      }
+    } while (_lastEvaluatedKey);
+  }
+
+  public async deleteUserSessions(userId: string): Promise<void> {
+    await this.deleteSessions({
+      TableName: this.tableName,
+      IndexName: 'Gs1',
+      KeyConditionExpression: '#uid = :uid',
+      ExpressionAttributeNames: {
+        '#uid': 'uid',
+        '#sid': 'sid',
+      },
+      ExpressionAttributeValues: {
+        ':uid': {S: userId},
+      },
+      Select: 'SPECIFIC_ATTRIBUTES',
+      ProjectionExpression: '#sid',
+    });
   }
 
   public async getSessionAndUser(
@@ -225,54 +236,22 @@ export class DynamoDBAdapter implements Adapter {
   }
 
   public async deleteExpiredSessions(): Promise<void> {
-    const now = Math.floor(new Date().getTime() / 1000);
-    // get all expired session keys to delete
-    let _lastEvaluatedKey: Record<string, AttributeValue> | undefined =
-      undefined;
-    const keys = [];
-    do {
-      const commandInput: QueryCommandInput = {
-        TableName: this.tableName,
-        IndexName: 'Gs2',
-        ExpressionAttributeNames: {
-          '#sid': 'sid',
-          '#exp': 'exp',
-          '#typ': 'typ',
-        },
-        ExpressionAttributeValues: {
-          ':typ': {S: 'Session'},
-          ':exp': {N: `${now}`},
-        },
-        KeyConditionExpression: '#typ = :typ AND #exp < :exp',
-        Select: 'SPECIFIC_ATTRIBUTES',
-        ProjectionExpression: '#sid',
-      };
-      if (_lastEvaluatedKey) commandInput.ExclusiveStartKey = _lastEvaluatedKey;
-      const res = await this.client.send(new QueryCommand(commandInput));
-      if (res?.Items?.length) {
-        const expiredSessions = res.Items.map((x) => unmarshall(x));
-        keys.push(
-          ...expiredSessions.map((item) => ({
-            sid: {S: item.sid},
-          })),
-        );
-      }
-      _lastEvaluatedKey = res?.LastEvaluatedKey;
-    } while (_lastEvaluatedKey);
-
-    // delete all expired session keys
-    for (let i = 0; i < keys.length; i += MAX_BATCH_SIZE) {
-      const batch = keys.slice(i, i + MAX_BATCH_SIZE);
-      await this.client.send(
-        new BatchWriteItemCommand({
-          RequestItems: {
-            [this.tableName]: batch.map((key) => ({
-              DeleteRequest: {Key: key},
-            })),
-          },
-        }),
-      );
-    }
+    await this.deleteSessions({
+      TableName: this.tableName,
+      IndexName: 'Gs2',
+      ExpressionAttributeNames: {
+        '#sid': 'sid',
+        '#exp': 'exp',
+        '#typ': 'typ',
+      },
+      ExpressionAttributeValues: {
+        ':typ': {S: 'Session'},
+        ':exp': {N: `${Math.floor(new Date().getTime() / 1000)}`},
+      },
+      KeyConditionExpression: '#typ = :typ AND #exp < :exp',
+      Select: 'SPECIFIC_ATTRIBUTES',
+      ProjectionExpression: '#sid',
+    });
   }
 
   private itemToSession(item: Record<string, AttributeValue>): DatabaseSession {
