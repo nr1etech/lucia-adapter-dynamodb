@@ -9,4 +9,4 @@ jobs:
   ci:
     uses: nr1etech/github-workflows/.github/workflows/javascript-library-build.yml@main
     with:
-      node-versions: '[18,20,22]'
+      node-versions: '[20,22]'

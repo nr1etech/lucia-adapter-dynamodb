@@ -14,7 +14,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     with:
       publish-dir: 'dist'
-      node-versions: '[18,20,22]'
+      node-versions: '[20,22]'
       publish-node-version: '22'
       develop-preid: 'beta'
       branch-preid: 'alpha'
