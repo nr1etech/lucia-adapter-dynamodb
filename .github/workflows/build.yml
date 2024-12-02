@@ -3,7 +3,7 @@ on:
     branches:
       - '**'
   workflow_dispatch:
-name: publish
+name: dependabot-build
 permissions:
   contents: write
   pages: write
@@ -11,14 +11,9 @@ permissions:
 jobs:
   publish:
     uses: nr1etech/github-workflows/.github/workflows/javascript-library.yml@main
-    if: github.actor != 'dependabot[bot]'
+    if: github.actor == 'dependabot[bot]'
     with:
-      publish-dir: 'dist'
-      node-versions: '[18,20,22]'
-      publish-node-version: '22'
-      develop-preid: "beta"
-      branch-preid: "alpha"
+      node-versions: "[18,20,22]"
     secrets:
-      npm-auth-token: ${{ secrets.NPM_AUTH_TOKEN }}
       app-id: ${{ secrets.RELEASE_BOT_ID }}
       private-key: ${{ secrets.RELEASE_BOT_KEY }}
