@@ -1,17 +1,16 @@
 # A DynamoDB Adapter For [lucia-auth](https://github.com/lucia-auth/lucia)
 
 [![NPM Version][npm-image]][npm-url]
-[![TypeScript Style Guide][gts-image]][gts-url]
 [![GitHub Actions][github-image]][github-url]
 
 This is a fork of [lucida-adapter-dynamodb](https://github.com/choutianxius/lucia-adapter-dynamodb).
 
 These modifications were made to suit some specific needs which include
 
-- An Expires column containing the seconds since epoch when the session expires which can be used with DynamoDB's TTL feature
-- Support to override how user data is retrieved which could be from other data sources and not DynamoDB
-- Support to fetch sessions with consistent read to DynamoDB
-- Modifications to the original schema to reduce the number of calls needed to DynamoDB
+-   An Expires column containing the seconds since epoch when the session expires which can be used with DynamoDB's TTL feature
+-   Support to override how user data is retrieved which could be from other data sources and not DynamoDB
+-   Support to fetch sessions with consistent read to DynamoDB
+-   Modifications to the original schema to reduce the number of calls needed to DynamoDB
 
 ## Install
 
@@ -26,15 +25,15 @@ import {DynamoDBClient} from '@aws-sdk/client-dynamodb';
 import {DynamoDBAdapter} from 'lucia-adapter-dynamodb';
 
 const client = new DynamoDBClient({
-  credentials: {
-    accessKeyId: 'xxx',
-    secretAccessKey: 'verysecret',
-  },
-  region: 'xx-xx-#',
+    credentials: {
+        accessKeyId: 'xxx',
+        secretAccessKey: 'verysecret',
+    },
+    region: 'xx-xx-#',
 });
 
 const adapter = new DynamoDBAdapter(client, {
-  // options
+    // options
 });
 
 // pass the adapter to lucia
@@ -71,65 +70,65 @@ with [`@aws-sdk/client-dynamodb`](https://docs.aws.amazon.com/AWSJavaScriptSDK/v
 
 ```typescript
 const client = new DynamoDBClient({
-  // DynamoDB configs
+    // DynamoDB configs
 });
 
 await client.send(
-  new CreateTableCommand({
-    TableName: 'LuciaAuthTable',
-    AttributeDefinitions: [
-      {AttributeName: 'Pk', AttributeType: 'S'},
-      {AttributeName: 'Sk', AttributeType: 'S'},
-      {AttributeName: 'Gs1Pk', AttributeType: 'S'},
-      {AttributeName: 'Gs1Sk', AttributeType: 'S'},
-      {AttributeName: 'Gs2Pk', AttributeType: 'S'},
-      {AttributeName: 'Gs2Sk', AttributeType: 'S'},
-    ],
-    KeySchema: [
-      {AttributeName: 'Pk', KeyType: 'HASH'}, // primary key
-      {AttributeName: 'Sk', KeyType: 'RANGE'}, // sort key
-    ],
-    GlobalSecondaryIndexes: [
-      {
-        IndexName: 'Gs1',
-        Projection: {ProjectionType: 'ALL'},
+    new CreateTableCommand({
+        TableName: 'LuciaAuthTable',
+        AttributeDefinitions: [
+            {AttributeName: 'Pk', AttributeType: 'S'},
+            {AttributeName: 'Sk', AttributeType: 'S'},
+            {AttributeName: 'Gs1Pk', AttributeType: 'S'},
+            {AttributeName: 'Gs1Sk', AttributeType: 'S'},
+            {AttributeName: 'Gs2Pk', AttributeType: 'S'},
+            {AttributeName: 'Gs2Sk', AttributeType: 'S'},
+        ],
         KeySchema: [
-          {AttributeName: 'Gs1Pk', KeyType: 'HASH'}, // GSI primary key
-          {AttributeName: 'Gs1Sk', KeyType: 'RANGE'}, // GSI sort key
+            {AttributeName: 'Pk', KeyType: 'HASH'}, // primary key
+            {AttributeName: 'Sk', KeyType: 'RANGE'}, // sort key
+        ],
+        GlobalSecondaryIndexes: [
+            {
+                IndexName: 'Gs1',
+                Projection: {ProjectionType: 'ALL'},
+                KeySchema: [
+                    {AttributeName: 'Gs1Pk', KeyType: 'HASH'}, // GSI primary key
+                    {AttributeName: 'Gs1Sk', KeyType: 'RANGE'}, // GSI sort key
+                ],
+                ProvisionedThroughput: {
+                    ReadCapacityUnits: 5,
+                    WriteCapacityUnits: 5,
+                },
+            },
+            {
+                IndexName: 'Gs2',
+                Projection: {ProjectionType: 'ALL'},
+                KeySchema: [
+                    {AttributeName: 'Gs2Pk', KeyType: 'HASH'}, // GSI primary key
+                    {AttributeName: 'Gs2Sk', KeyType: 'RANGE'}, // GSI sort key
+                ],
+                ProvisionedThroughput: {
+                    ReadCapacityUnits: 5,
+                    WriteCapacityUnits: 5,
+                },
+            },
         ],
         ProvisionedThroughput: {
-          ReadCapacityUnits: 5,
-          WriteCapacityUnits: 5,
+            ReadCapacityUnits: 5,
+            WriteCapacityUnits: 5,
         },
-      },
-      {
-        IndexName: 'Gs2',
-        Projection: {ProjectionType: 'ALL'},
-        KeySchema: [
-          {AttributeName: 'Gs2Pk', KeyType: 'HASH'}, // GSI primary key
-          {AttributeName: 'Gs2Sk', KeyType: 'RANGE'}, // GSI sort key
-        ],
-        ProvisionedThroughput: {
-          ReadCapacityUnits: 5,
-          WriteCapacityUnits: 5,
-        },
-      },
-    ],
-    ProvisionedThroughput: {
-      ReadCapacityUnits: 5,
-      WriteCapacityUnits: 5,
-    },
-  })
+    }),
 );
 
 await client.send(
-  new UpdateTimeToLiveCommand({
-    TableName: 'LuciaAuthTable',
-    TimeToLiveSpecification: {
-      AttributeName: 'Expires',
-      Enabled: true,
-    },
-  })
+    new UpdateTimeToLiveCommand({
+        TableName: 'LuciaAuthTable',
+        TimeToLiveSpecification: {
+            AttributeName: 'Expires',
+            Enabled: true,
+        },
+    }),
 );
 ```
 
@@ -140,7 +139,7 @@ configuration object can be passed as the second argument.
 
 ```typescript
 class DynamoDBAdapter {
-  constructor(client: DynamoDBClient, options?: DynamoDBAdapterOptions);
+    constructor(client: DynamoDBClient, options?: DynamoDBAdapterOptions);
 }
 ```
 
@@ -165,5 +164,3 @@ The configuration object can be specified as follows:
 [github-image]: https://github.com/nr1etech/lucia-adapter-dynamodb/workflows/ci/badge.svg
 [npm-url]: https://npmjs.org/package/@nr1e/lucia-adapter-dynamodb
 [npm-image]: https://img.shields.io/npm/v/@nr1e/lucia-adapter-dynamodb.svg
-[gts-image]: https://img.shields.io/badge/code%20style-google-blueviolet.svg
-[gts-url]: https://github.com/google/gts

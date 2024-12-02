@@ -9,14 +9,13 @@
     "**"
   ],
   "scripts": {
+    "prebuild": "prettier --check . && eslint src",
     "build": "tsc",
-    "postbuild": "prettier --check . && gts lint && cp README.md package.json dist",
+    "postbuild": "cp README.md package.json dist",
     "watch": "tsc -w",
     "test": "vitest run --coverage",
-    "lint": "gts lint",
-    "fix": "gts fix",
     "clean": "rm -rf ./dist && rm -rf ./coverage",
-    "makepretty": "prettier --write ."
+    "fmt": "prettier --write ."
   },
   "repository": {
     "type": "git",
@@ -41,14 +40,13 @@
     "@aws-sdk/util-dynamodb": "^3.525.0",
     "@lucia-auth/adapter-test": "^5.0.0",
     "@types/node": "^20.11.25",
-    "@vitest/coverage-v8": "^1.6.0",
-    "eslint": "^8.57.0",
-    "gts": "^5.3.0",
+    "eslint": "^9.16.0",
     "lucia": "^3.0.1",
     "testcontainers": "^10.9.0",
     "typescript": "^5.4.2",
-    "typescript-eslint": "^7.4.0",
-    "vitest": "^1.6.0"
+    "typescript-eslint": "^8.16.0",
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0"
   },
   "peerDependencies": {
     "lucia": "3.x"

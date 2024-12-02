@@ -16,7 +16,7 @@ const MAX_BATCH_SIZE = 25;
 
 export type GetUserFn = (
   client: DynamoDBClient,
-  userId: string
+  userId: string,
 ) => Promise<DatabaseUser | null>;
 
 export interface DynamoDBAdapterOptions {
@@ -150,7 +150,7 @@ export class DynamoDBAdapter implements Adapter {
           [this.pk]: {S: `Session#${sessionId}`},
           [this.sk]: {S: 'Session'},
         },
-      })
+      }),
     );
   }
 
@@ -183,10 +183,10 @@ export class DynamoDBAdapter implements Adapter {
       const res = await this.client.send(new QueryCommand(commandInput));
       if (res?.Items?.length) {
         keys.push(
-          ...res.Items.map(item => ({
+          ...res.Items.map((item) => ({
             [this.pk]: item[this.pk],
             [this.sk]: item[this.sk],
-          }))
+          })),
         );
       }
       _lastEvaluatedKey = res?.LastEvaluatedKey;
@@ -198,17 +198,17 @@ export class DynamoDBAdapter implements Adapter {
       await this.client.send(
         new BatchWriteItemCommand({
           RequestItems: {
-            [this.tableName]: batch.map(key => ({
+            [this.tableName]: batch.map((key) => ({
               DeleteRequest: {Key: key},
             })),
           },
-        })
+        }),
       );
     }
   }
 
   public async getSessionAndUser(
-    sessionId: string
+    sessionId: string,
   ): Promise<[session: DatabaseSession | null, user: DatabaseUser | null]> {
     const sessionRes = await this.client.send(
       new QueryCommand({
@@ -223,7 +223,7 @@ export class DynamoDBAdapter implements Adapter {
           ':sk': {S: 'Session'},
         },
         ConsistentRead: this.consistentRead,
-      })
+      }),
     );
     if (!sessionRes?.Items?.length) return [null, null];
     const session = this.itemToSession(sessionRes.Items[0]);
@@ -239,7 +239,7 @@ export class DynamoDBAdapter implements Adapter {
             [this.pk]: {S: `User#${session.userId}`},
             [this.sk]: {S: 'User'},
           },
-        })
+        }),
       );
       if (!userRes?.Item) return [session, null];
       user = this.itemToUser(userRes.Item);
@@ -270,7 +270,7 @@ export class DynamoDBAdapter implements Adapter {
       if (_lastEvaluatedKey) commandInput.ExclusiveStartKey = _lastEvaluatedKey;
       const res = await this.client.send(new QueryCommand(commandInput));
       if (res?.Items?.length) {
-        sessions.push(...res.Items.map(x => this.itemToSession(x)));
+        sessions.push(...res.Items.map((x) => this.itemToSession(x)));
       }
       _lastEvaluatedKey = res?.LastEvaluatedKey;
     } while (_lastEvaluatedKey);
@@ -293,13 +293,13 @@ export class DynamoDBAdapter implements Adapter {
           [this.expires]: expires,
           ...databaseSession.attributes,
         }),
-      })
+      }),
     );
   }
 
   public async updateSessionExpiration(
     sessionId: string,
-    expiresAt: Date
+    expiresAt: Date,
   ): Promise<void> {
     if (expiresAt.getTime() > Date.now()) {
       const expires = Math.floor(expiresAt.getTime() / 1000);
@@ -328,7 +328,7 @@ export class DynamoDBAdapter implements Adapter {
             ':pk': {S: `Session#${sessionId}`},
             ':sk': {S: 'Session'},
           },
-        })
+        }),
       );
     } else {
       await this.deleteSession(sessionId);
@@ -362,12 +362,12 @@ export class DynamoDBAdapter implements Adapter {
       if (_lastEvaluatedKey) commandInput.ExclusiveStartKey = _lastEvaluatedKey;
       const res = await this.client.send(new QueryCommand(commandInput));
       if (res?.Items?.length) {
-        const expiredSessions = res.Items.map(x => unmarshall(x));
+        const expiredSessions = res.Items.map((x) => unmarshall(x));
         keys.push(
-          ...expiredSessions.map(x => ({
+          ...expiredSessions.map((x) => ({
             [this.pk]: {S: x[this.pk]},
             [this.sk]: {S: x[this.sk]},
-          }))
+          })),
         );
       }
       _lastEvaluatedKey = res?.LastEvaluatedKey;
@@ -379,11 +379,11 @@ export class DynamoDBAdapter implements Adapter {
       await this.client.send(
         new BatchWriteItemCommand({
           RequestItems: {
-            [this.tableName]: batch.map(key => ({
+            [this.tableName]: batch.map((key) => ({
               DeleteRequest: {Key: key},
             })),
           },
-        })
+        }),
       );
     }
   }
@@ -392,11 +392,17 @@ export class DynamoDBAdapter implements Adapter {
     const unmarshalled = unmarshall(item);
     const {
       [this.pk]: pk,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       [this.sk]: sk,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       [this.gsi1pk]: gsi1pk,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       [this.gsi1sk]: gsi1sk,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       [this.gsi2pk]: gsi2pk,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       [this.gsi2sk]: gsi2sk,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       [this.expires]: expires,
       ...rest
     } = unmarshalled;
@@ -418,10 +424,14 @@ export class DynamoDBAdapter implements Adapter {
     const unmarshalled = unmarshall(item);
     const {
       [this.pk]: pk,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       [this.sk]: sk,
       [this.gsi1pk]: gsi1pk,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       [this.gsi1sk]: gsi1sk,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       [this.gsi2pk]: gsi2pk,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       [this.gsi2sk]: gsi2sk,
       [this.expires]: expires,
       ...rest

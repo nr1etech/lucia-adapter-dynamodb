@@ -1,4 +1,4 @@
-import {test, expect, beforeEach, afterEach} from 'vitest';
+import {test, beforeEach, afterEach} from 'vitest';
 import {testAdapter, databaseUser} from '@lucia-auth/adapter-test';
 import {DynamoDBAdapter} from '../src/index.js';
 import {
@@ -78,7 +78,7 @@ beforeEach(async (context: LocalTestContext) => {
         ReadCapacityUnits: 5,
         WriteCapacityUnits: 5,
       },
-    })
+    }),
   );
 
   await context.client.send(
@@ -90,7 +90,7 @@ beforeEach(async (context: LocalTestContext) => {
         HashedPassword: '123456',
         ...databaseUser.attributes,
       }),
-    })
+    }),
   );
 }, 60000);
 
