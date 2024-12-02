@@ -9,3 +9,4 @@ node_modules
 dist
 site
 coverage
+*.sw?
