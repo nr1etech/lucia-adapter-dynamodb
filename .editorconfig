@@ -1,11 +1,13 @@
+; https://editorconfig.org/
+
 root = true
 
 [*]
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
 indent_style = space
 indent_size = 2
-end_of_line = lf
-charset = utf-8
-insert_final_newline = true
 
 [{Makefile,go.mod,go.sum,*.go,.gitmodules}]
 indent_style = tab
@@ -15,5 +17,7 @@ indent_size = 4
 indent_size = 4
 trim_trailing_whitespace = false
 
-[*.{py,java,r,R}]
+eclint_indent_style = unset
+
+[Dockerfile]
 indent_size = 4
