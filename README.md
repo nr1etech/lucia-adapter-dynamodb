@@ -7,10 +7,10 @@ This is a fork of [lucida-adapter-dynamodb](https://github.com/choutianxius/luci
 
 These modifications were made to suit some specific needs which include
 
--   An Expires column containing the seconds since epoch when the session expires which can be used with DynamoDB's TTL feature
--   Support to override how user data is retrieved which could be from other data sources and not DynamoDB
--   Support to fetch sessions with consistent read to DynamoDB
--   Modifications to the original schema to reduce the number of calls needed to DynamoDB
+- An Expires column containing the seconds since epoch when the session expires which can be used with DynamoDB's TTL feature
+- Support to override how user data is retrieved which could be from other data sources and not DynamoDB
+- Support to fetch sessions with consistent read to DynamoDB
+- Modifications to the original schema to reduce the number of calls needed to DynamoDB
 
 ## Install
 
