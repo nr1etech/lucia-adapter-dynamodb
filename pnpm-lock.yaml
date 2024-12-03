@@ -7,13 +7,17 @@ settings:
 importers:
 
   .:
-    devDependencies:
+    dependencies:
       '@aws-sdk/client-dynamodb':
         specifier: ^3.699.0
         version: 3.699.0
       '@aws-sdk/util-dynamodb':
         specifier: ^3.699.0
         version: 3.699.0(@aws-sdk/client-dynamodb@3.699.0)
+      lucia:
+        specifier: ^3.2.2
+        version: 3.2.2
+    devDependencies:
       '@lucia-auth/adapter-test':
         specifier: ^5.0.2
         version: 5.0.2(lucia@3.2.2)
@@ -26,9 +30,6 @@ importers:
       eslint:
         specifier: ^9.16.0
         version: 9.16.0
-      lucia:
-        specifier: ^3.2.2
-        version: 3.2.2
       prettier:
         specifier: ^3.4.1
         version: 3.4.1
