@@ -61,5 +61,12 @@
       "import": "./index.js",
       "types": "./index.d.ts"
     }
-  }
+  },
+  "engines": {
+    "node": ">=20",
+    "npm": "use pnpm",
+    "yarn": "use pnpm",
+    "pnpm": ">=10"
+  },
+  "packageManager": "pnpm@10.2.1"
 }
