@@ -36,6 +36,7 @@
   },
   "homepage": "https://github.com/nr1etech/lucia-adapter-dynamodb#readme",
   "devDependencies": {
+    "@eslint/js": "^9.24.0",
     "@lucia-auth/adapter-test": "^5.0.2",
     "@types/node": "^22.10.1",
     "@vitest/coverage-v8": "^1.6.0",
@@ -52,9 +53,9 @@
     "lucia": "^3.2.2"
   },
   "peerDependencies": {
-    "lucia": "^3.2.2",
     "@aws-sdk/client-dynamodb": "^3.787.0",
-    "@aws-sdk/util-dynamodb": "^3.787.0"
+    "@aws-sdk/util-dynamodb": "^3.787.0",
+    "lucia": "^3.2.2"
   },
   "exports": {
     ".": {
