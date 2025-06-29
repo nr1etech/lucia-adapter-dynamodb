@@ -36,25 +36,25 @@
   },
   "homepage": "https://github.com/nr1etech/lucia-adapter-dynamodb#readme",
   "devDependencies": {
-    "@eslint/js": "^9.24.0",
+    "@eslint/js": "^9.30.0",
     "@lucia-auth/adapter-test": "^5.0.2",
-    "@types/node": "^22.10.1",
-    "@vitest/coverage-v8": "^1.6.0",
-    "eslint": "^9.16.0",
-    "prettier": "^3.4.1",
-    "testcontainers": "^10.15.0",
-    "typescript": "^5.7.2",
-    "typescript-eslint": "^8.17.0",
-    "vitest": "^1.6.0"
+    "@types/node": "^22.15.34",
+    "@vitest/coverage-v8": "^1.6.1",
+    "eslint": "^9.30.0",
+    "prettier": "^3.6.2",
+    "testcontainers": "^10.28.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.35.0",
+    "vitest": "^1.6.1"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.787.0",
-    "@aws-sdk/util-dynamodb": "^3.787.0",
+    "@aws-sdk/client-dynamodb": "^3.839.0",
+    "@aws-sdk/util-dynamodb": "^3.839.0",
     "lucia": "^3.2.2"
   },
   "peerDependencies": {
-    "@aws-sdk/client-dynamodb": "^3.787.0",
-    "@aws-sdk/util-dynamodb": "^3.787.0",
+    "@aws-sdk/client-dynamodb": "^3.839.0",
+    "@aws-sdk/util-dynamodb": "^3.839.0",
     "lucia": "^3.2.2"
   },
   "exports": {
@@ -64,10 +64,10 @@
     }
   },
   "engines": {
-    "node": ">=20",
+    "node": ">=22",
     "npm": "use pnpm",
     "yarn": "use pnpm",
     "pnpm": ">=10"
   },
-  "packageManager": "pnpm@10.2.1"
+  "packageManager": "pnpm@10.12.1"
 }
