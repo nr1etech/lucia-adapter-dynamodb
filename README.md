@@ -1,3 +1,8 @@
+**⚠️ THIS PROJECT HAS MOVED**
+
+This project has been incorporated into our monorepo located at https://github.com/nr1etech/lib-js.
+Please go there for the the latest source code.
+
 # A DynamoDB Adapter For [lucia-auth](https://github.com/lucia-auth/lucia)
 
 [![NPM Version][npm-image]][npm-url]
